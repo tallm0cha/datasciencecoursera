@@ -1,0 +1,117 @@
+---
+title: "Coursera Machine Learning Project"
+author: "Gaurav A Singh"
+date: "February 9, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(caret)
+library(dplyr)
+library(kernlab)
+library(ggplot2)
+library(randomForest)
+```
+
+## Introduction 
+
+This is writeup for the final project for Coursera Machine Learning. The data we'll use contains readings for barbell lifts captured by accelerometers. You can read more about the data here: http://groupware.les.inf.puc-rio.br/har 
+We will create a model to predict the manner in which the participants performed the exercise. We will also use 20 different test cases. 
+
+## The Data 
+
+Let's import the data and see what features they have. 
+```{r data.import, echo=FALSE}
+pmlTraining <- read.csv('pml-training.csv')
+pmlTesting <- read.csv('pml-testing.csv')
+dim(pmlTraining)
+names(pmlTraining)
+```
+  
+Both the training and testing data sets contain 160 columns. The most important one is **classe** as our model will be predicting this. Let's look at a set of values for this. 
+```{r data.classe, echo=FALSE}
+plot(pmlTraining$classe, type="h")
+```
+
+As depicted above, there are 5 different classification levels, thus, we should use classification models for this exercise.  
+
+### Preprocessing  
+
+Looking at the data, we notice 2 things:  
+1. First 7 columns are record identifiers    
+2. There are numerous empty values, NAs and #DIV/0s  
+
+```{r pre.1, echo=FALSE}
+head(pmlTraining)
+```
+  
+We will now use the pmlTraining data frame and remove the first 7 columns and make all the other columns numeric. We'll also do the same thing for the pmlTesting data frame. Subsequently, we'll remove columns that do not have any values - we will use the testing dataset to find columns that are empty and are not needed.  
+```{r pre.2, echo=T}
+pmlTraining.pre <- pmlTraining[,8:160]
+pmlTraining.pre [,1:152] <- sapply(pmlTraining.pre[,1:152], as.numeric)
+pmlTesting.pre <- pmlTesting[,8:160]
+pmlTesting.pre [,1:152] <- sapply(pmlTesting.pre[,1:152], as.numeric)
+
+emptyCols.Test <- colSums(is.na(pmlTesting.pre))!=0
+pmlTesting.pre <- pmlTesting.pre[,!emptyCols.Test]
+pmlTraining.pre <- pmlTraining.pre[,!emptyCols.Test]
+```
+  
+Next, we will split the training data frame into traing and testing datasets for our model. The pmlTesting.pre dataset will be used to answer the problems in the project quiz. 
+```{r data.part, echo=FALSE}
+trainInd <- createDataPartition(pmlTraining.pre$classe, p=0.7, list =F)
+trainPml <- pmlTraining.pre[trainInd,]
+testPml <- pmlTraining.pre[-trainInd,]
+View(data.frame(Dataset=c("Training","Testing"), Observations=c(dim(trainPml)[1],dim(testPml)[1]),Variables=c(dim(trainPml)[2],dim(testPml)[2])))
+```
+
+ 
+## The Model  
+Let's begin with an **rpart** model.  
+```{r model.rpart, echo=T}
+rpartFit <- train(classe~., method='rpart',data=trainPml)
+pred.rpart <- predict(rpartFit, testPml)
+cm.rpart <- confusionMatrix(testPml$classe, pred.rpart)
+cm.rpart$overall
+plot(rpartFit$finalModel, branch=1, margin=.05, compress=T, uniform=F)
+text(rpartFit$finalModel, all = T, cex=0.75, pretty=T)
+```
+  
+Let's now use an **rf** model. We also use 3-fold **cross validation** here. We use 3 instead of 10 due to lesser computational power required for 3-fold.     
+```{r model.rf, echo=T}
+fitControl <- trainControl(method = 'cv', number=3)
+rfFit <- train(classe~., method='rf',data=trainPml, trControl=fitControl)
+pred.rf <- predict(rfFit, testPml)
+cm.rf <- confusionMatrix(testPml$classe, pred.rf)
+cm.rf$overall
+varImpPlot(rfFit$finalModel, n.var=10, main="Top 10 Variables")
+```
+  
+Woah! Seems like we have a winner here. With 99.3% accuracy, this will probably be the best model we can come up with. But, let's try one more since good things come in 3s.  
+
+Let's now use the **bagging** model.      
+```{r model.bag, echo=T}
+bagFit <- train(classe~., method='treebag',data=trainPml)
+pred.bag <- predict(bagFit, testPml)
+cm.bag <- confusionMatrix(testPml$classe, pred.bag)
+cm.bag$overall
+plot(varImp(bagFit), top=10, main='Top 10 Variables')
+```
+  
+This model's pretty good as well - 98.8% accuracy.
+ 
+## Model Selection and Prediction Results 
+Let's compare all the models and pick the **rf** model.  
+```{r model.sel, echo=F}
+View(data.frame(rpart = cm.rpart$overall[1], rf = cm.rf$overall[1], treebag = cm.bag$overall[1]))
+cm.rf
+```
+ 
+Let's predict the 20 test cases to answer the quiz. 
+```{r results, echo=T}
+pred.test <- predict(rfFit, pmlTesting.pre)
+```
+```{r results.view, echo=F}
+View(data.frame(Prediction=pred.test))
+```
