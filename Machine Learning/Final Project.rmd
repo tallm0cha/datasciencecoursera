@@ -63,7 +63,7 @@ Next, we will split the training data frame into traing and testing datasets for
 trainInd <- createDataPartition(pmlTraining.pre$classe, p=0.7, list =F)
 trainPml <- pmlTraining.pre[trainInd,]
 testPml <- pmlTraining.pre[-trainInd,]
-View(data.frame(Dataset=c("Training","Testing"), Observations=c(dim(trainPml)[1],dim(testPml)[1]),Variables=c(dim(trainPml)[2],dim(testPml)[2])))
+data.frame(Dataset=c("Training","Testing"), Observations=c(dim(trainPml)[1],dim(testPml)[1]),Variables=c(dim(trainPml)[2],dim(testPml)[2]))
 ```
 
  
@@ -104,7 +104,7 @@ This model's pretty good as well - 98.8% accuracy.
 ## Model Selection and Prediction Results 
 Let's compare all the models and pick the **rf** model.  
 ```{r model.sel, echo=F}
-View(data.frame(rpart = cm.rpart$overall[1], rf = cm.rf$overall[1], treebag = cm.bag$overall[1]))
+data.frame(rpart = cm.rpart$overall[1], rf = cm.rf$overall[1], treebag = cm.bag$overall[1])
 cm.rf
 ```
  
@@ -113,5 +113,5 @@ Let's predict the 20 test cases to answer the quiz.
 pred.test <- predict(rfFit, pmlTesting.pre)
 ```
 ```{r results.view, echo=F}
-View(data.frame(Prediction=pred.test))
+data.frame(Prediction=pred.test)
 ```
